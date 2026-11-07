@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  PENYEWA
+  PETUGAS
+}
+
+enum RoomType {
+  KELAS
+  LAB
+  AULA
+  RAPAT
+}
+
+enum BookingPurpose {
+  ORGANISASI
+  AKADEMIK
+  UMUM
+}
+
+enum BookingStatus {
+  MENUNGGU_PERSETUJUAN
+  DISETUJUI
+  DITOLAK
+  MENUNGGU_VERIFIKASI
+  TERKONFIRMASI
+  SELESAI
+  DIBATALKAN
+}
+
+enum PaymentStatus {
+  MENUNGGU
+  VALID
+  DITOLAK
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  role          Role           @default(PENYEWA)
+  phone         String?
+  nimNip        String?
+  isActive      Boolean        @default(true)
+  bookings      Booking[]
+  notifications Notification[]
+  createdAt     DateTime       @default(now())
+
+  @@map("users")
+}
+
+model Room {
+  id           String    @id @default(uuid())
+  name         String
+  type         RoomType
+  capacity     Int
+  building     String
+  floor        Int
+  facilities   String    @db.Text
+  pricePerHour Int       @default(0)
+  imageUrl     String?
+  isActive     Boolean   @default(true)
+  bookings     Booking[]
+
+  @@unique([name])
+  @@index([type, capacity, isActive])
+  @@map("rooms")
+}
+
+model Booking {
+  id               String         @id @default(uuid())
+  code             String         @unique
+  userId           String
+  roomId           String
+  date             DateTime       @db.Date
+  startTime        DateTime
+  endTime          DateTime
+  purpose          String         @db.Text
+  purposeType      BookingPurpose
+  eventName        String
+  organizationName String?
+  programStudy     String?
+  course           String?
+  participants     Int
+  totalPrice       Int            @default(0)
+  status           BookingStatus  @default(MENUNGGU_PERSETUJUAN)
+  rejectReason     String?        @db.Text
+  documentUrl      String?
+  user             User           @relation(fields: [userId], references: [id])
+  room             Room           @relation(fields: [roomId], references: [id])
+  payment          Payment?
+
+  @@index([roomId, date, startTime, endTime, status])
+  @@index([userId, startTime])
+  @@map("bookings")
+}
+
+model Payment {
+  id         String        @id @default(uuid())
+  bookingId  String        @unique
+  booking    Booking       @relation(fields: [bookingId], references: [id])
+  proofUrl   String
+  amount     Int
+  status     PaymentStatus @default(MENUNGGU)
+  verifiedBy String?
+  note       String?       @db.Text
+  senderName String?
+  paidAt     DateTime      @default(now())
+
+  @@map("payments")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
